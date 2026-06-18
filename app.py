@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 AI Agent CS Analyzer
 ====================
@@ -262,8 +263,8 @@ def page_compare(data):
 
         # Desire vs Capacity
         fig2 = go.Figure()
-        fig2.add_trace(go.Bar(name="Desire", x=df["Occupation"], y=df["desire"]))
-        fig2.add_trace(go.Bar(name="Capacity", x=df["Occupation"], y=df["capacity"]))
+        fig2.add_trace(go.Bar(name="Desire", x=df["Occupation (O*NET-SOC Title)"], y=df["desire"]))
+        fig2.add_trace(go.Bar(name="Capacity", x=df["Occupation (O*NET-SOC Title)"], y=df["capacity"]))
         fig2.update_layout(barmode="group", title="Desire vs Capacity", height=400)
         st.plotly_chart(fig2, use_container_width=True)
 
