@@ -5,6 +5,20 @@ AI Agent CS Analyzer
 Phan tich & khuyen nghi AI Agent trong Khoa hoc May tinh
 Dung Streamlit + WorkBank data
 
+SO DO LUONG:
+  WorkBank (4 CSV)
+       │
+       ▼
+  load_data() ──► loc 14 nghe CS
+       │
+       ▼
+  calc_scores() ──► API | Readiness | Gap | Collab
+       │
+       ├──► page_dashboard()   : Tong quan
+       ├──► page_detail()      : 1 nghe + top_tasks() + agent
+       ├──► page_recommend()   : Bang khuyen nghi
+       └──► page_compare()     : So sanh nhieu nghe
+
 Chay: pip install streamlit pandas plotly && streamlit run app.py
 """
 
