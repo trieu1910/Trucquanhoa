@@ -2,40 +2,40 @@
 """
 AI Agent CS Analyzer
 ====================
-Phan tich & khuyen nghi AI Agent trong Khoa hoc May tinh
-Dung Streamlit + WorkBank data
+Phân tích & khuyến nghị AI Agent trong Khoa học Máy tính
+Dùng Streamlit + WorkBank data
 
-SO DO LUONG:
+SƠ ĐỒ LUỒNG:
   WorkBank (4 CSV)
        │
        ▼
-  load_data() ──► loc 14 nghe CS
+  load_data() ──► lọc 14 ngành CS
        │
        ▼
   calc_scores() ──► API | Readiness | Gap | Collab
        │
-       ├──► page_dashboard()   : Tong quan
-       ├──► page_detail()      : 1 nghe + top_tasks() + agent
-       ├──► page_recommend()   : Bang khuyen nghi
-       └──► page_compare()     : So sanh nhieu nghe
+       ├──► page_dashboard()   : Tổng quan
+       ├──► page_detail()      : 1 ngành + top_tasks() + agent
+       ├──► page_recommend()   : Bảng khuyến nghị
+       └──► page_compare()     : So sánh nhiều ngành
 
-Chay: pip install streamlit pandas plotly && streamlit run app.py
+Chạy: pip install streamlit pandas plotly && streamlit run app.py
 """
 
-# === Thu vien ===
-import streamlit as st     # Tao web app
-import pandas as pd        # Xu ly du lieu bang
-import numpy as np         # Tinh toan so
-import plotly.express as px   # Ve bieu do nhanh
-import plotly.graph_objects as go  # Ve bieu do tuy chinh
-from pathlib import Path   # Xu ly duong dan file
+# === Thư viện ===
+import streamlit as st      # Tạo web app
+import pandas as pd         # Xử lý dữ liệu bảng
+import numpy as np          # Tính toán số
+import plotly.express as px     # Vẽ biểu đồ nhanh
+import plotly.graph_objects as go  # Vẽ biểu đồ tùy chỉnh
+from pathlib import Path    # Xử lý đường dẫn file
 
-# === Cai dat trang web: title, icon, che do rong ===
+# === Cài đặt trang web: title, icon, chế độ rộng ===
 st.set_page_config(page_title="AI Agent CS", page_icon="🤖", layout="wide")
 
-# === DANH SACH 14 NGHE TRONG LINH VUC KHOA HOC MAY TINH ===
-# Day la cac nghe duoc loc tu WorkBank dataset
-# Moi nghe co ma O*NET-SOC rieng
+# === DANH SÁCH 14 NGÀNH TRONG LĨNH VỰC KHOA HỌC MÁY TÍNH ===
+# Đây là các ngành được lọc từ WorkBank dataset
+# Mỗi ngành có mã O*NET-SOC riêng
 CS_JOBS = [
     "Computer Programmers",
     "Computer Systems Analysts",
@@ -53,95 +53,95 @@ CS_JOBS = [
     "Web Administrators",
 ]
 
-# === DINH NGHIA 8 LOAI AI AGENT ===
-# Moi agent co: ten, icon, mo ta, cong nghe, do phuc tap (1=thap, 3=cao)
-# Day la nhung agent pho bien nhat trong CS hien nay
+# === ĐỊNH NGHĨA 8 LOẠI AI AGENT ===
+# Mỗi agent có: tên, icon, mô tả, công nghệ, độ phức tạp (1=thấp, 3=cao)
+# Đây là những agent phổ biến nhất trong CS hiện nay
 AGENTS = {
-    "code": {"name": "Code Agent", "icon": "⚡", "desc": "Sinh code, sua loi, refactor tu dong",
+    "code": {"name": "Code Agent", "icon": "⚡", "desc": "Sinh code, sửa lỗi, refactor tự động",
              "tech": "GPT-4, Copilot, Codeium, Tree-sitter", "level": 1},
-    "rpa": {"name": "RPA Agent", "icon": "🤖", "desc": "Tu dong hoa nhap lieu, xu ly form, lap lich",
+    "rpa": {"name": "RPA Agent", "icon": "🤖", "desc": "Tự động hóa nhập liệu, xử lý form, lập lịch",
             "tech": "Selenium, PyAutoGUI, UiPath", "level": 1},
-    "monitor": {"name": "Monitor Agent", "icon": "📡", "desc": "Giam sat he thong, canh bao bat thuong",
+    "monitor": {"name": "Monitor Agent", "icon": "📡", "desc": "Giám sát hệ thống, cảnh báo bất thường",
                 "tech": "Prometheus, Grafana, ELK", "level": 1},
-    "analytic": {"name": "Analytic Agent", "icon": "📊", "desc": "Phan tich data, phat hien pattern, du bao",
+    "analytic": {"name": "Analytic Agent", "icon": "📊", "desc": "Phân tích data, phát hiện pattern, dự báo",
                  "tech": "Pandas, sklearn, LangChain, TensorFlow", "level": 2},
-    "security": {"name": "Security Agent", "icon": "🔒", "desc": "Phat hien xam nhap, kiem tra bao mat",
+    "security": {"name": "Security Agent", "icon": "🔒", "desc": "Phát hiện xâm nhập, kiểm tra bảo mật",
                  "tech": "Wazuh, Splunk, ML models", "level": 2},
-    "copilot": {"name": "Copilot Agent", "icon": "👨‍💻", "desc": "Tro ly AI realtime cho developer",
+    "copilot": {"name": "Copilot Agent", "icon": "👨‍💻", "desc": "Trợ lý AI realtime cho developer",
                 "tech": "GitHub Copilot, Cursor, OpenAPI", "level": 2},
-    "autonomous": {"name": "Auto Agent", "icon": "🧠", "desc": "Tu quyet dinh & thuc thi khong can nguoi",
+    "autonomous": {"name": "Auto Agent", "icon": "🧠", "desc": "Tự quyết định & thực thi không cần người",
                    "tech": "AutoGPT, CrewAI, RL", "level": 3},
-    "collab": {"name": "Collab Agent", "icon": "🤝", "desc": "Hop tac nguoi-AI, chia task, hoc tu feedback",
+    "collab": {"name": "Collab Agent", "icon": "🤝", "desc": "Hợp tác người-AI, chia task, học từ feedback",
                "tech": "AutoGen, RAG, Copilot Studio", "level": 3},
 }
 
-# === MAP: MOI NGHE -> AGENT KHUYEN NGHI ===
-# Mo^i nghe duoc: (danh sach agent_id, ly do)
-# Duoc xay dung tu phan tich WorkBank + dac thu tung nghe
+# === MAP: MỖI NGÀNH → AGENT KHUYẾN NGHỊ ===
+# Mỗi ngành gồm: (danh sách agent_id, lý do)
+# Được xây dựng từ phân tích WorkBank + đặc thù từng ngành
 RECS = {
-    "Computer Programmers": (["copilot", "code", "rpa"], "Code + RPA la chinh"),
-    "Computer Systems Analysts": (["analytic", "collab", "code"], "Can phan tich nhieu"),
-    "Computer Systems Engineers/Architects": (["collab", "analytic", "security"], "Thiet ke + Bao mat"),
-    "Computer Network Support Specialists": (["monitor", "rpa", "autonomous"], "Giam sat la chinh"),
-    "Computer User Support Specialists": (["copilot", "rpa", "monitor"], "Ho tro nguoi dung"),
-    "Computer and Information Research Scientists": (["analytic", "autonomous", "collab"], "Nghien cuu"),
-    "Computer and Information Systems Managers": (["analytic", "monitor", "collab"], "Quan ly tong the"),
+    "Computer Programmers": (["copilot", "code", "rpa"], "Code + RPA là chính"),
+    "Computer Systems Analysts": (["analytic", "collab", "code"], "Cần phân tích nhiều"),
+    "Computer Systems Engineers/Architects": (["collab", "analytic", "security"], "Thiết kế + Bảo mật"),
+    "Computer Network Support Specialists": (["monitor", "rpa", "autonomous"], "Giám sát là chính"),
+    "Computer User Support Specialists": (["copilot", "rpa", "monitor"], "Hỗ trợ người dùng"),
+    "Computer and Information Research Scientists": (["analytic", "autonomous", "collab"], "Nghiên cứu"),
+    "Computer and Information Systems Managers": (["analytic", "monitor", "collab"], "Quản lý tổng thể"),
     "Software Quality Assurance Analysts and Testers": (["code", "rpa", "analytic"], "Test automation"),
     "Web Developers": (["copilot", "code", "monitor"], "Web dev + deploy"),
-    "Database Administrators": (["monitor", "rpa", "autonomous"], "Backup + giam sat"),
+    "Database Administrators": (["monitor", "rpa", "autonomous"], "Backup + giám sát"),
     "Network and Computer Systems Administrators": (["monitor", "rpa", "security"], "Admin + security"),
-    "Information Security Analysts": (["security", "monitor", "analytic"], "Bao mat la chinh"),
-    "Information Technology Project Managers": (["analytic", "collab", "monitor"], "Quan ly du an"),
+    "Information Security Analysts": (["security", "monitor", "analytic"], "Bảo mật là chính"),
+    "Information Technology Project Managers": (["analytic", "collab", "monitor"], "Quản lý dự án"),
     "Web Administrators": (["monitor", "rpa", "security"], "Web admin"),
 }
 
 
 # ============================================================
-# PHAN 1: LOAD DU LIEU TU FILE CSV
+# PHẦN 1: LOAD DỮ LIỆU TỪ FILE CSV
 # ============================================================
 
 @st.cache_data
 def load_data():
     """
-    Doc 4 file CSV tu thu muc workbank1/ (cap tren).
-    Chi lay nhung dong thuoc 14 nghe CS.
-    Ket qua duoc cache de khoi doc lai khi refresh.
+    Đọc 4 file CSV từ thư mục workbank1/ (cấp trên).
+    Chỉ lấy những dòng thuộc 14 ngành CS.
+    Kết quả được cache để khỏi đọc lại khi refresh.
     """
-    # Di len 1 cap: tu ai_agent_cs/ -> workbank1/
+    # Đi lên 1 cấp: từ ai_agent_cs/ → workbank1/
     base = Path(__file__).resolve().parent.parent
 
-    # Ham doc 1 file va loc nghe CS
+    # Hàm đọc 1 file và lọc ngành CS
     def read(name):
         df = pd.read_csv(base / name, encoding="utf-8", low_memory=False)
         return df[df["Occupation (O*NET-SOC Title)"].isin(CS_JOBS)].copy()
 
-    # Tra ve 4 bang du lieu
+    # Trả về 4 bảng dữ liệu
     return {
-        "tasks": read("task_statement_with_metadata.csv"),   # Mo ta cong viec tu O*NET
-        "desires": read("domain_worker_desires.csv"),         # Khao sat mong muon tu dong hoa
-        "workers": read("domain_worker_metadata.csv"),         # Thong tin nguoi tham gia
-        "expert": read("expert_rated_technological_capability.csv"),  # Danh gia chuyen gia
+        "tasks": read("task_statement_with_metadata.csv"),   # Mô tả công việc từ O*NET
+        "desires": read("domain_worker_desires.csv"),         # Khảo sát mong muốn tự động hóa
+        "workers": read("domain_worker_metadata.csv"),         # Thông tin người tham gia
+        "expert": read("expert_rated_technological_capability.csv"),  # Đánh giá chuyên gia
     }
 
 
 # ============================================================
-# PHAN 2: TINH TOAN CHI SO
+# PHẦN 2: TÍNH TOÁN CHỈ SỐ
 # ============================================================
 
 def calc_scores(data):
     """
-    Tinh 4 chi so chinh cho tung nghe:
-      - API: Tiem nang tu dong hoa (0-100%)
-      - Readiness: Muc do san sang cua cong nghe (0-100%)
-      - Collab: Muc do phu hop cho hop tac nguoi-AI (0-100%)
-      - Gap: Chenh lech Desire - Capacity (am/duong)
+    Tính 4 chỉ số chính cho từng ngành:
+      - API: Tiềm năng tự động hóa (0-100%)
+      - Readiness: Mức độ sẵn sàng của công nghệ (0-100%)
+      - Collab: Mức độ phù hợp cho hợp tác người-AI (0-100%)
+      - Gap: Chênh lệch Desire - Capacity (âm/dương)
 
-    Cach tinh:
-      1. Gom 4 bang du lieu theo Occupation
-      2. Tinh trung binh cho tung chi so
-      3. Ap dung cong thuc da dinh nghia
+    Cách tính:
+      1. Gom 4 bảng dữ liệu theo Occupation
+      2. Tính trung bình cho từng chỉ số
+      3. Áp dụng công thức đã định nghĩa
     """
-    # Buoc 1: Gom nhom va tinh trung binh cho tung nghe
+    # Bước 1: Gom nhóm và tính trung bình cho từng ngành
     d = data["desires"].groupby("Occupation (O*NET-SOC Title)")["Automation Desire Rating"].mean()
     c = data["expert"].groupby("Occupation (O*NET-SOC Title)")["Automation Capacity Rating"].mean()
     u = data["expert"].groupby("Occupation (O*NET-SOC Title)")["Involved Uncertainty"].mean()
@@ -149,63 +149,63 @@ def calc_scores(data):
     i = data["expert"].groupby("Occupation (O*NET-SOC Title)")["Interpersonal Communication Requirement"].mean()
     a = data["desires"].groupby("Occupation (O*NET-SOC Title)")["Human Agency Scale Rating"].mean()
 
-    # Buoc 2: Gom vao 1 bang
+    # Bước 2: Gom vào 1 bảng
     df = pd.DataFrame({"desire": d, "capacity": c, "uncertainty": u,
                        "expertise": e, "interpersonal": i, "agency": a})
 
-    # Buoc 3: Tinh API - trong so: Desire 40%, Capacity 40%, chuyen mon 10%, giao tiep 10%
+    # Bước 3: Tính API - trọng số: Desire 40%, Capacity 40%, chuyên môn 10%, giao tiếp 10%
     df["api"] = (df["desire"]*0.4 + df["capacity"]*0.4
                  + (6-df["expertise"])*0.1 + (6-df["interpersonal"])*0.1)
-    df["api"] = ((df["api"]-1)/4*100).clip(0, 100)  # Chuan hoa ve 0-100%
+    df["api"] = ((df["api"]-1)/4*100).clip(0, 100)  # Chuẩn hóa về 0-100%
 
-    # Buoc 4: Tinh Readiness - cong nghe san sang = f(Capacity, Uncertainty)
+    # Bước 4: Tính Readiness - công nghệ sẵn sàng = f(Capacity, Uncertainty)
     df["readiness"] = ((df["capacity"] + (6-df["uncertainty"]))/2)
     df["readiness"] = ((df["readiness"]-1)/4*100).clip(0, 100)
 
-    # Buoc 5: Tinh Collab - muc do phu hop cho nguoi + AI
+    # Bước 5: Tính Collab - mức độ phù hợp cho người + AI
     df["collab"] = df["agency"]*0.6 + 0.4
     df["collab"] = ((df["collab"]-1)/4*100).clip(0, 100)
 
-    # Buoc 6: Tinh Gap = Desire - Capacity (duong = thieu, am = thua)
+    # Bước 6: Tính Gap = Desire - Capacity (dương = thiếu, âm = thừa)
     df["gap"] = df["desire"] - df["capacity"]
 
-    # Sap xep: nghe co API cao nhat len dau
+    # Sắp xếp: ngành có API cao nhất lên đầu
     return df.sort_values("api", ascending=False)
 
 
 def top_tasks(occ, data, n=5):
     """
-    Tim n task co tiem nang tu dong hoa cao nhat
-    cho mot nghe cu the.
-    Diem = (Desire + Capacity) / 2, moi yeu to 50%.
+    Tìm n task có tiềm năng tự động hóa cao nhất
+    cho một ngành cụ thể.
+    Điểm = (Desire + Capacity) / 2, mỗi yếu tố 50%.
 
     Args:
-        occ: Ten nghe (vd: "Computer Programmers")
-        data: Dict 4 bang du lieu
-        n: So luong task muon lay
+        occ: Tên ngành (vd: "Computer Programmers")
+        data: Dict 4 bảng dữ liệu
+        n: Số lượng task muốn lấy
 
     Returns:
         DataFrame: [Task, score]
     """
-    # Loc 3 bang theo nghe
+    # Lọc 3 bảng theo ngành
     d = data["desires"][data["desires"]["Occupation (O*NET-SOC Title)"] == occ]
     c = data["expert"][data["expert"]["Occupation (O*NET-SOC Title)"] == occ]
     t = data["tasks"][data["tasks"]["Occupation (O*NET-SOC Title)"] == occ]
 
-    # Neu khong co du lieu -> tra ve rong
+    # Nếu không có dữ liệu → trả về rỗng
     if d.empty or c.empty:
         return pd.DataFrame()
 
-    # Tinh diem trung binh Desire va Capacity cho tung Task ID
+    # Tính điểm trung bình Desire và Capacity cho từng Task ID
     desire = d.groupby("Task ID")["Automation Desire Rating"].mean().rename("desire")
     cap = c.groupby("Task ID")["Automation Capacity Rating"].mean().rename("capacity")
 
-    # Ket hop va tinh tong diem
+    # Kết hợp và tính tổng điểm
     merged = desire.to_frame().join(cap, how="outer")
     merged["score"] = merged["desire"].fillna(3)*0.5 + merged["capacity"].fillna(3)*0.5
     merged = merged.sort_values("score", ascending=False).head(n)
 
-    # Ghep voi mo ta task tu bang tasks
+    # Ghép với mô tả task từ bảng tasks
     info = t[["Task ID", "Task"]].drop_duplicates("Task ID")
     merged = merged.reset_index().merge(info, on="Task ID", how="left")
 
@@ -213,50 +213,50 @@ def top_tasks(occ, data, n=5):
 
 
 # ============================================================
-# PHAN 3: GIAO DIEN NGUOI DUNG (UI)
+# PHẦN 3: GIAO DIỆN NGƯỜI DÙNG (UI)
 # ============================================================
 
 def sidebar():
     """
-    Tao thanh ben trai voi menu dieu huong.
-    Nguoi dung chon trang bang nut radio.
+    Tạo thanh bên trái với menu điều hướng.
+    Người dùng chọn trang bằng nút radio.
     """
     with st.sidebar:
         st.markdown("# 🤖 AI Agent CS")
-        # Menu chinh: 4 trang
+        # Menu chính: 4 trang
         page = st.radio("", [
             "📊 Dashboard",
-            "💼 Chi tiet",
-            "🤖 Khuyen nghi",
-            "📈 So sanh",
+            "💼 Chi tiết",
+            "🤖 Khuyến nghị",
+            "📈 So sánh",
         ], label_visibility="collapsed")
         st.caption("WorkBank dataset | 14 CS occupations")
     return page
 
 
 # ============================================================
-# PHAN 4: CAC TRANG
+# PHẦN 4: CÁC TRANG
 # ============================================================
 
 def page_dashboard(data):
     """
-    Trang 1 - Dashboard: Tong quan tat ca chi so.
-    Hien thi:
-      - 4 the metric (so nghe, API TB, Top nghe, Readiness TB)
-      - Bieu do cot API cho 14 nghe
-      - Bang chi tiet API, Readiness, Collab, Gap
+    Trang 1 - Dashboard: Tổng quan tất cả chỉ số.
+    Hiển thị:
+      - 4 thẻ metric (số ngành, API TB, Top ngành, Readiness TB)
+      - Biểu đồ cột API cho 14 ngành
+      - Bảng chi tiết API, Readiness, Collab, Gap
     """
-    st.title("📊 Tong quan AI Agent - Khoa hoc May tinh")
+    st.title("📊 Tổng quan AI Agent - Khoa học Máy tính")
     scores = calc_scores(data)
 
-    # 4 the thong tin nhanh
+    # 4 thẻ thông tin nhanh
     a, b, c, d = st.columns(4)
     a.metric("CS Occupations", len(scores))
     b.metric("API TB", f"{scores['api'].mean():.1f}%")
     c.metric("Top", f"{scores.index[0]}", help=f"API={scores['api'].iloc[0]:.1f}%")
     d.metric("Readiness TB", f"{scores['readiness'].mean():.1f}%")
 
-    # Bieu do cot: API Score tung nghe, mau xanh-do theo gia tri
+    # Biểu đồ cột: API Score từng ngành, màu xanh-đỏ theo giá trị
     fig = px.bar(scores.reset_index().sort_values("api"),
                  x="api", y="Occupation (O*NET-SOC Title)",
                  color="api", color_continuous_scale="RdYlGn",
@@ -265,10 +265,10 @@ def page_dashboard(data):
     fig.update_layout(height=500)
     st.plotly_chart(fig, use_container_width=True)
 
-    # Bang du lieu: hien thi 4 cot chinh
-    st.subheader("📋 Tong hop")
+    # Bảng dữ liệu: hiển thị 4 cột chính
+    st.subheader("📋 Tổng hợp")
     display = scores[["api", "readiness", "collab", "gap"]].round(1)
-    # Them icon cho moi nghe de de nhin
+    # Thêm icon cho mỗi ngành để dễ nhìn
     display.index = [f"{e} {j}" for e, j in
                      zip(["🖥️","🔍","🏗️","🌐","💻","🔬","📊","✅","🌍","🗄️","🔧","🔒","📋","⚙️"],
                          display.index)]
@@ -277,19 +277,19 @@ def page_dashboard(data):
 
 def page_detail(data):
     """
-    Trang 2 - Chi tiet: Xem thong tin 1 nghe cu the.
-    Nguoi dung chon nghe tu dropdown.
-    Hien thi:
-      - 3 chi so chinh (API, Readiness, Collab)
-      - Top 5 task co the tu dong hoa
-      - AI Agent khuyen nghi + cong nghe
+    Trang 2 - Chi tiết: Xem thông tin 1 ngành cụ thể.
+    Người dùng chọn ngành từ dropdown.
+    Hiển thị:
+      - 3 chỉ số chính (API, Readiness, Collab)
+      - Top 5 task có thể tự động hóa
+      - AI Agent khuyến nghị + công nghệ
     """
-    st.title("💼 Chi tiet Occupation")
+    st.title("💼 Chi tiết Occupation")
 
-    # Dropdown chon nghe
-    occ = st.selectbox("Chon nghe:", CS_JOBS)
+    # Dropdown chọn ngành
+    occ = st.selectbox("Chọn ngành:", CS_JOBS)
 
-    # Hien thi 3 chi so
+    # Hiển thị 3 chỉ số
     scores = calc_scores(data)
     if occ in scores.index:
         r = scores.loc[occ]
@@ -298,18 +298,18 @@ def page_detail(data):
         col2.metric("Readiness", f"{r['readiness']:.1f}%")
         col3.metric("Collab", f"{r['collab']:.1f}%")
 
-    # Bang top task co diem cao nhat
-    st.subheader("🎯 Top task nen uu tien")
+    # Bảng top task có điểm cao nhất
+    st.subheader("🎯 Top task nên ưu tiên")
     tasks = top_tasks(occ, data)
     if not tasks.empty:
         st.dataframe(tasks, use_container_width=True, hide_index=True)
     else:
-        st.info("Chua co du lieu")
+        st.info("Chưa có dữ liệu")
 
-    # Hien thi agent khuyen nghi
-    st.subheader("🤖 AI Agent de xuat")
+    # Hiển thị agent khuyến nghị
+    st.subheader("🤖 AI Agent đề xuất")
     if occ in RECS:
-        agent_ids, reason = RECS[occ]  # Lay tu mapping
+        agent_ids, reason = RECS[occ]  # Lấy từ mapping
         st.success(f"**{reason}**")
         cols = st.columns(len(agent_ids))
         for i, aid in enumerate(agent_ids):
@@ -317,69 +317,69 @@ def page_detail(data):
             with cols[i]:
                 st.markdown(f"### {ag['icon']} {ag['name']}")
                 st.caption(ag["desc"])
-                st.markdown(f"Cong nghe: `{ag['tech']}`")
+                st.markdown(f"Công nghệ: `{ag['tech']}`")
 
 
 def page_recommend(data):
     """
-    Trang 3 - Khuyen nghi: Bang tong hop agent cho moi nghe.
-    Hien thi:
-      - Danh muc 8 agent (dang expander)
-      - Bang: nghe -> agent de xuat -> API -> muc uu tien
-      - Bieu do tron phan bo uu tien
+    Trang 3 - Khuyến nghị: Bảng tổng hợp agent cho mỗi ngành.
+    Hiển thị:
+      - Danh mục 8 agent (dạng expander)
+      - Bảng: ngành → agent đề xuất → API → mức ưu tiên
+      - Biểu đồ tròn phân bố ưu tiên
     """
-    st.title("🤖 Khuyen nghi AI Agent")
+    st.title("🤖 Khuyến nghị AI Agent")
     scores = calc_scores(data)
 
-    # Expander chua danh muc agent
-    with st.expander("📚 Danh muc Agent (nhan de xem)"):
+    # Expander chứa danh mục agent
+    with st.expander("📚 Danh mục Agent (nhấn để xem)"):
         cols = st.columns(4)
         for i, (_, ag) in enumerate(AGENTS.items()):
             with cols[i % 4]:
                 st.markdown(f"**{ag['icon']} {ag['name']}**")
                 st.caption(ag["desc"])
 
-    # Tao bang recommend: moi dong = 1 nghe
+    # Tạo bảng recommend: mỗi dòng = 1 ngành
     rows = []
     for occ in scores.index:
         if occ in RECS:
             aids, _ = RECS[occ]
-            # Tao chuoi: icon + ten agent, cach nhau boi ", "
+            # Tạo chuỗi: icon + tên agent, cách nhau bởi ", "
             agent_str = ", ".join([AGENTS[a]["icon"] + AGENTS[a]["name"] for a in aids])
-            # Xep loai uu tien: Cao > 55%, TB > 40%, Thap <= 40%
-            pri = "Cao" if scores.loc[occ, "api"] > 55 else ("TB" if scores.loc[occ, "api"] > 40 else "Thap")
+            # Xếp loại ưu tiên: Cao > 55%, TB > 40%, Thấp <= 40%
+            pri = "Cao" if scores.loc[occ, "api"] > 55 else ("TB" if scores.loc[occ, "api"] > 40 else "Thấp")
             rows.append({"Occupation": occ, "Agent": agent_str,
                          "API": f"{scores.loc[occ, 'api']:.1f}%", "Priority": pri})
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    # Bieu do tron: ti le Cao / TB / Thap
+    # Biểu đồ tròn: tỉ lệ Cao / TB / Thấp
     cao = sum(1 for r in rows if r["Priority"] == "Cao")
     tb = sum(1 for r in rows if r["Priority"] == "TB")
-    thap = sum(1 for r in rows if r["Priority"] == "Thap")
-    fig = px.pie(names=["Cao", "TB", "Thap"],
+    thap = sum(1 for r in rows if r["Priority"] == "Thấp")
+    fig = px.pie(names=["Cao", "TB", "Thấp"],
                  values=[cao, tb, thap],
-                 title="Muc do uu tien",
-                 color=["Cao", "TB", "Thap"],
-                 color_discrete_map={"Cao": "#2ca02c", "TB": "#ffbb78", "Thap": "#d62728"})
+                 title="Mức độ ưu tiên",
+                 color=["Cao", "TB", "Thấp"],
+                 color_discrete_map={"Cao": "#2ca02c", "TB": "#ffbb78", "Thấp": "#d62728"})
     st.plotly_chart(fig, use_container_width=True)
 
 
 def page_compare(data):
     """
-    Trang 4 - So sanh: So sanh 2-4 nghe cung luc.
-    Hien thi:
-      - Bieu do Radar: API, Readiness, Collab
-      - Bieu do cot: Desire vs Capacity
+    Trang 4 - So sánh: So sánh 2-4 ngành cùng lúc.
+    Hiển thị:
+      - Biểu đồ Radar: API, Readiness, Collab
+      - Biểu đồ cột: Desire vs Capacity
     """
-    st.title("📈 So sanh Occupations")
+    st.title("📈 So sánh Occupations")
     scores = calc_scores(data)
 
-    # Multiselect cho phep chon nhieu nghe
-    chon = st.multiselect("Chon nghe (2-4):", CS_JOBS, default=CS_JOBS[:3])
+    # Multiselect cho phép chọn nhiều ngành
+    chon = st.multiselect("Chọn ngành (2-4):", CS_JOBS, default=CS_JOBS[:3])
     if len(chon) >= 2:
         df = scores.loc[chon].reset_index()
 
-        # Radar chart: moi nghe la 1 hinh tren cung bieu do
+        # Radar chart: mỗi ngành là 1 hình trên cùng biểu đồ
         fig = go.Figure()
         for _, row in df.iterrows():
             vals = [row["api"], row["readiness"], row["collab"]]
@@ -391,7 +391,7 @@ def page_compare(data):
         fig.update_layout(polar=dict(radialaxis=dict(range=[0, 100])), height=500)
         st.plotly_chart(fig, use_container_width=True)
 
-        # Bieu do cot so sanh Desire (mong muon) vs Capacity (kha nang)
+        # Biểu đồ cột so sánh Desire (mong muốn) vs Capacity (khả năng)
         fig2 = go.Figure()
         fig2.add_trace(go.Bar(name="Desire", x=df["Occupation (O*NET-SOC Title)"], y=df["desire"]))
         fig2.add_trace(go.Bar(name="Capacity", x=df["Occupation (O*NET-SOC Title)"], y=df["capacity"]))
@@ -400,36 +400,36 @@ def page_compare(data):
 
 
 # ============================================================
-# PHAN 5: MAIN - KHOI DONG APP
+# PHẦN 5: MAIN - KHỞI ĐỘNG APP
 # ============================================================
 
 def main():
     """
-    Ham chay chinh:
-      1. Load du lieu (neu loi -> dung lai)
-      2. Hien sidebar de chon trang
-      3. Dua vao trang da chon -> goi ham tuong ung
+    Hàm chạy chính:
+      1. Load dữ liệu (nếu lỗi → dừng lại)
+      2. Hiện sidebar để chọn trang
+      3. Dựa vào trang đã chọn → gọi hàm tương ứng
     """
-    # Load du lieu, neu loi thi bao va dung
+    # Load dữ liệu, nếu lỗi thì báo và dừng
     try:
         data = load_data()
     except Exception as e:
-        st.error(f"Loi load data: {e}")
+        st.error(f"Lỗi load data: {e}")
         st.stop()
 
-    # Hoi nguoi dung muon vao trang nao
+    # Hỏi người dùng muốn vào trang nào
     page = sidebar()
 
-    # Chuyen huong: dict mapping ten trang -> ham
+    # Chuyển hướng: dict mapping tên trang → hàm
     pages = {
         "📊 Dashboard": page_dashboard,
-        "💼 Chi tiet": page_detail,
-        "🤖 Khuyen nghi": page_recommend,
-        "📈 So sanh": page_compare,
+        "💼 Chi tiết": page_detail,
+        "🤖 Khuyến nghị": page_recommend,
+        "📈 So sánh": page_compare,
     }
     pages[page](data)
 
 
-# Diem bat dau khi chay `python app.py` hoac `streamlit run app.py`
+# Điểm bắt đầu khi chạy `python app.py` hoặc `streamlit run app.py`
 if __name__ == "__main__":
     main()
